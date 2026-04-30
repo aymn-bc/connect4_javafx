@@ -15,9 +15,12 @@ import com.example.model.Position;
 import com.example.vue.InterfaceJeuPuissance;
 import com.example.vue.VueAjouterJoueur;
 import com.example.vue.VueDetailsJoueur;
+import com.example.vue.VueExporterPartie;
 import com.example.vue.VueHistoriqueJoueur;
+import com.example.vue.VueImporterPartie;
 import com.example.vue.VueListeJoueurs;
 import com.example.vue.VueListeJoueursParParties;
+import com.example.vue.VueSimulerPartie;
 
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
@@ -171,14 +174,14 @@ public class Controlleur {
 
         mniLancerPartie.setOnAction(event -> gameControlleur());
         mniSimulerPartie.setOnAction(event -> {
-            System.out.println("test");
+            new VueSimulerPartie().afficher();
         });
         
         mniImporter.setOnAction(event -> {
-            //importer une partie
+            new VueImporterPartie().afficher();
         });
         mniExporter.setOnAction(event -> {
-            //exporter une partie
+            new VueExporterPartie().afficher();
         });
 
         MenuItem mniListeJoueurs      = new MenuItem("Liste des joueurs");
