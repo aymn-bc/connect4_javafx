@@ -7,8 +7,9 @@ import java.util.List;
 public class Partie {
 	private Joueur j1, j2;
 	private Joueur gagnant;
-	private ArrayList<Coup> lisCoupJ = new ArrayList();
+	private ArrayList<Coup> lisCoupJ = new ArrayList<>();
 	private List<Coup> coups = new ArrayList<>();
+	private int id;
 	private int nbJetonJ1 = 21;
 	private int nbJetonJ2 = 21;
 	private int scorej1, scorej2;
@@ -136,6 +137,23 @@ public class Partie {
 
 	public void setPuissance(Game p) {
 		this.game = p;
+	}
+
+	// allow DAOPartie to set the reconstructed game
+	public void setGame(Game g) {
+		this.game = g;
+	}
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public void setLocalDate(LocalDate localDate) {
+		this.localDate = localDate;
 	}
 
 	public Joueur getJ1() {
