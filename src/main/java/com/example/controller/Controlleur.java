@@ -177,9 +177,9 @@ public class Controlleur {
             new VueSimulerPartie().afficher();
         });
         
-        mniImporter.setOnAction(event -> {
-            new VueImporterPartie().afficher();
-        });
+        // mniImporter.setOnAction(event -> {
+        //     new VueImporterPartie().afficher();
+        // });
         mniExporter.setOnAction(event -> {
             new VueExporterPartie().afficher();
         });
