@@ -13,6 +13,13 @@ public class Coup {
 		this.idJoueur = idJoueur;
 	}
 
+
+	public Coup(int idPartie, int numCol, int idJoueur) {
+		this.idPartie = idPartie;
+		this.numCol = numCol;
+		this.idJoueur = idJoueur;
+	}
+
 	public int getIdPartie() {
 		return idPartie;
 	}

@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.List;
 
 import com.example.model.DAOPartie;
+import com.example.model.GestionFichier;
 import com.example.model.Partie;
 
 import javafx.collections.FXCollections;
@@ -51,6 +52,7 @@ public class VueExporterPartie {
         btnBrowse.setOnAction(event -> {
             FileChooser chooser = new FileChooser();
             chooser.setTitle("Choisir le fichier d'export");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Fichiers texte", "*.txt")); // if not .txt it dont use it
             File file = chooser.showSaveDialog(stage);
             if (file != null) {
                 pathField.setText(file.getAbsolutePath());
@@ -74,11 +76,57 @@ public class VueExporterPartie {
                 alert.showAndWait();
                 return;
             }
-            Alert alert = new Alert(AlertType.INFORMATION);
-            alert.setTitle("Export");
-            alert.setHeaderText("Export non implémenté");
-            alert.setContentText("Partie #" + selected.getId() + " -> " + pathField.getText());
-            alert.showAndWait();
+            
+            try {
+                // Get full partie with coups from DB
+                DAOPartie dao = new DAOPartie();
+                Partie fullPartie = dao.findById(selected.getId());
+                
+                // Export to chosen path
+                GestionFichier gf = new GestionFichier();
+                
+                // Determine output path (use selected path or default name if directory)
+                String outputPath = pathField.getText();
+                File outputFile = new File(outputPath);
+                if (outputFile.isDirectory() || !outputPath.endsWith(".txt")) {
+                    outputPath = outputPath + "/partie_" + fullPartie.getId() + ".txt";
+                }
+                
+                // Write to actual file
+                File targetFile = new File(outputPath);
+                java.io.FileWriter fw = new java.io.FileWriter(targetFile);
+                try (fw) {
+                    fw.write(fullPartie.getJ1().getId() + "\n");
+                    fw.write(fullPartie.getJ2().getId() + "\n");
+                    fw.write(fullPartie.getScoreJ1() + "\n");
+                    fw.write(fullPartie.getScoreJ2() + "\n");
+                    
+                    if (fullPartie.getGagnant() != null) {
+                        fw.write(fullPartie.getGagnant().getId() + "\n");
+                    } else {
+                        fw.write("-1\n");
+                    }
+                    
+                    fw.write(fullPartie.getLocalDate() + "\n");
+                    
+                    for (com.example.model.Coup c : fullPartie.getCoups()) {
+                        fw.write(c.getIdPartie() + "," + c.getNumLigne() + "," + c.getNumCol() + "," + c.getIdJoueur() + "\n");
+                    }
+                }
+                
+                Alert alert = new Alert(AlertType.INFORMATION);
+                alert.setTitle("Succès");
+                alert.setHeaderText("Partie exportée avec succès");
+                alert.setContentText("Fichier: " + outputPath);
+                alert.showAndWait();
+                stage.close();
+            } catch (Exception e) {
+                Alert alert = new Alert(AlertType.ERROR);
+                alert.setTitle("Erreur");
+                alert.setHeaderText("Impossible d'exporter la partie");
+                alert.setContentText(e.getMessage());
+                alert.showAndWait();
+            }
         });
 
         VBox root = new VBox(10);

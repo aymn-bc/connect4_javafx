@@ -18,15 +18,22 @@ public class Partie {
 	private LocalDate localDate;
 
 	public Partie() {
-		GestionJoueur gestionJoueur = new GestionJoueur();
-		List<Joueur> listeJoueur = gestionJoueur.getList();
-		j1 = listeJoueur.get(1);
-		j2 = listeJoueur.get(2);
+		// Load from DAO instead of GestionJoueur
+		DAOJoueur daoJoueur = new DAOJoueur();
+		List<Joueur> joueurs = daoJoueur.findAll();
+		if (joueurs != null && joueurs.size() >= 2) {
+			j1 = joueurs.get(0);
+			j2 = joueurs.get(1);
+		} else {
+			// Fallback if DB is unavailable
+			j1 = new Joueur(1, "Joueur 1", 0);
+			j2 = new Joueur(2, "Joueur 2", 0);
+		}
 		this.rolejoueur = j1.getId();
 		game = new Game(j1.getId(), j2.getId());
 		localDate = LocalDate.now();
-
 	}
+
 	public Partie(Joueur j1, Joueur j2) {
 		this.j1 = j1;
 		this.j2 = j2;
