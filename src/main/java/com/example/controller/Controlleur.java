@@ -10,6 +10,7 @@ import com.example.model.DAOPartie;
 import com.example.model.Game;
 import com.example.model.GestionFichier;
 import com.example.model.Joueur;
+import com.example.model.JoueurAI;
 import com.example.model.Partie;
 import com.example.model.Position;
 import com.example.vue.InterfaceJeuPuissance;
@@ -17,10 +18,13 @@ import com.example.vue.VueAjouterJoueur;
 import com.example.vue.VueDetailsJoueur;
 import com.example.vue.VueExporterPartie;
 import com.example.vue.VueHistoriqueJoueur;
+import com.example.vue.VueImporterPartie;
 import com.example.vue.VueListeJoueurs;
 import com.example.vue.VueListeJoueursParParties;
 
 import javafx.application.Platform;
+import javafx.concurrent.ScheduledService;
+import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
@@ -29,10 +33,11 @@ import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.layout.BorderPane;
 
 public class Controlleur {
-    // ============ Fields ============
+    // Variables
     private BorderPane fenetre = new BorderPane();
     private Partie partieJeu;
     private Button[][] tabButton;
@@ -40,13 +45,13 @@ public class Controlleur {
     private CheckMenuItem mnisauvPartie;
     private int gameMode = 0; // 0=PvP, 1=PvIA, 2=AIvsAI
     private boolean gameInProgress = false;
+    ScheduledService<Void> aiService;
 
-    // ============ Constructor ============
     public Controlleur() {
         fenetre.setTop(getMenu());
     }
 
-    // ============ Getters ============
+    // Getters
     public BorderPane getFenetre() {
         return this.fenetre;
     }
@@ -106,7 +111,7 @@ public class Controlleur {
         }
         
         Joueur joueur = joueurs.get(0);
-        Joueur ai = new com.example.model.JoueurAI(999, "IA - Medium", 0, 2);
+        Joueur ai = new JoueurAI(999, "IA - Medium", 0, 2);
         partieJeu = new Partie(joueur, ai);
         gameMode = 1; // PvIA
         gameInProgress = true;
@@ -120,8 +125,8 @@ public class Controlleur {
     public void lancerSimulationAIvsAI() {
         int nbLigne = 6, nbColonne = 7;
         
-        com.example.model.JoueurAI ai1 = new com.example.model.JoueurAI(998, "IA - Easy", 0, 1);
-        com.example.model.JoueurAI ai2 = new com.example.model.JoueurAI(999, "IA - Medium", 0, 2);
+        JoueurAI ai1 = new JoueurAI(998, "IA - Easy", 0, 1);
+        JoueurAI ai2 = new JoueurAI(999, "IA - Medium", 0, 2);
         partieJeu = new Partie(ai1, ai2);
         gameMode = 2; // AIvsAI
         gameInProgress = true;
@@ -132,7 +137,7 @@ public class Controlleur {
         startAISimulation();
     }
 
-    // ============ Game Logic ============
+    // Game logic
     private List<Joueur> loadPlayers() {
         DAOJoueur daoJoueur = new DAOJoueur();
         return daoJoueur.findAll();
@@ -163,7 +168,7 @@ public class Controlleur {
 
     private void gestionAction(int numCol) {
         // If it's AI's turn in PvIA mode, ignore player input
-        if (gameMode == 1 && partieJeu.getJoueurCourant() instanceof com.example.model.JoueurAI) {
+        if (gameMode == 1 && partieJeu.getJoueurCourant() instanceof JoueurAI) {
             return;
         }
         
@@ -187,15 +192,31 @@ public class Controlleur {
                 this.partieJeu.modifieRole();
                 
                 // If next player is AI in PvIA mode, let AI play
-                if (gameMode == 1 && partieJeu.getJoueurCourant() instanceof com.example.model.JoueurAI) {
-                    new Thread(() -> {
-                        try {
+                if (gameMode == 1 && partieJeu.getJoueurCourant() instanceof JoueurAI) {
+                    // Thread.sleep(800);
+                    // Timer timer = new Timer();
+                    // timer.schedule(new TimerTask() {
+                    //     public void run(){
+                            
+                    //         timer.cancel();
+                    //     }
+                    // }, 800);
+                    // Thread.currentThread().interrupt();   
+
+
+                    Task<Void> aiTask = new Task<>() {
+                        public Void call() throws Exception{
                             Thread.sleep(800);
-                            javafx.application.Platform.runLater(this::playAIMove);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
+
+                            Platform.runLater(() ->{
+                                playAIMove();
+                            });
+
+                            return null;
                         }
-                    }).start();
+                    }; 
+
+                    new Thread(aiTask).start();
                 }
             }
         } catch (CoupException e) {
@@ -208,7 +229,7 @@ public class Controlleur {
      */
     private void playAIMove() {
         Game puissance = this.partieJeu.getPuissance();
-        com.example.model.JoueurAI ai = (com.example.model.JoueurAI) this.partieJeu.getJoueurCourant();
+        JoueurAI ai = (JoueurAI) this.partieJeu.getJoueurCourant();
         
         try {
             int col = ai.choisirCoup(puissance);
@@ -221,8 +242,11 @@ public class Controlleur {
             updateButtonColor(numligne, col);
             
             if (this.partieJeu.estGagnant(new Position(numligne, col))) {
+                this.partieJeu.setGagnant(this.partieJeu.getJoueurCourant());
+                aiService.cancel();
                 handleGameWin();
             } else if (this.partieJeu.estRemplie()) {
+                aiService.cancel();
                 handleGameTie();
             } else {
                 this.partieJeu.modifieRole();
@@ -234,10 +258,21 @@ public class Controlleur {
     }
 
     private void updateButtonColor(int numligne, int numCol) {
-        if (this.partieJeu.getJoueurCourant().getId() == this.partieJeu.getJ1().getId())
-            interfaceJeuPuissance.setCouleurButton(5 - numligne, numCol, "#FF0000");
-        else
-            interfaceJeuPuissance.setCouleurButton(5 - numligne, numCol, "#00FF00");
+        // Get the player ID from the game board at this position
+        Game game = this.partieJeu.getPuissance();
+        int playerId = game.getValeurPosition(numligne, numCol);
+        
+        // Determine color based on player ID
+        String color;
+        if (playerId == this.partieJeu.getJ1().getId()) {
+            color = "#FF0000"; // Red for J1
+        } else if (playerId == this.partieJeu.getJ2().getId()) {
+            color = "#00FF00"; // Green for J2
+        } else {
+            color = "#aaaaaa"; // Gray for empty (shouldn't happen)
+        }
+        
+        interfaceJeuPuissance.setCouleurButton(5 - numligne, numCol, color);
     }
 
     private void handleGameWin() {
@@ -324,84 +359,44 @@ public class Controlleur {
         }
     }
 
+    private boolean gameOver() {
+        return partieJeu.estRemplie() || partieJeu.getGagnant() != null;
+    }
+
     /**
      * Start automatic AI vs AI simulation in the main interface
      */
     private void startAISimulation() {
-        new Thread(() -> {
-            try {
-                Game game = partieJeu.getPuissance();
-                game.initialiseGrille();
-                
-                com.example.model.JoueurAI ai1 = (com.example.model.JoueurAI) partieJeu.getJ1();
-                com.example.model.JoueurAI ai2 = (com.example.model.JoueurAI) partieJeu.getJ2();
-                
-                int moveCount = 0;
-                while (gameInProgress && moveCount < 100) {
-                    // AI 1 plays
-                    int col1 = ai1.choisirCoup(game);
-                    try {
-                        int ligne1 = game.getLigneVideByColonne(col1);
-                        game.setCoup(ligne1, col1, ai1.getId());
-                        
-                        Coup coup1 = new Coup(0, ligne1, col1, ai1.getId());
-                        partieJeu.ajouterCoup(coup1);
-                        moveCount++;
-                        
-                        final int move = moveCount;
-                        javafx.application.Platform.runLater(() -> updateButtonColor(ligne1, col1));
-                        
+        
+        Game game = partieJeu.getPuissance();
+        game.initialiseGrille();
+        
+        JoueurAI ai1 = (JoueurAI) partieJeu.getJ1();
+        JoueurAI ai2 = (JoueurAI) partieJeu.getJ2();
+        
+        aiService = new ScheduledService<>(){
+            public Task<Void> createTask() {
+                Task<Void> task = new Task<>() {
+                    public Void call() throws Exception {
                         Thread.sleep(800);
-                        
-                        if (game.estGagnant(new Position(ligne1, col1), ai1.getId())) {
-                            javafx.application.Platform.runLater(this::handleGameWin);
-                            return;
-                        }
-                        
-                        if (game.estRemplie()) {
-                            javafx.application.Platform.runLater(this::handleGameTie);
-                            return;
-                        }
-                    } catch (CoupException e) {
-                        // AI 1 stuck
+                        Platform.runLater(() -> {
+                            if (!gameOver()){
+                                playAIMove();
+                            } else {
+                                aiService.cancel();
+                            }
+                            
+                        });
+                        return null;
                     }
-                    
-                    if (!gameInProgress) return;
-                    
-                    // AI 2 plays
-                    int col2 = ai2.choisirCoup(game);
-                    try {
-                        int ligne2 = game.getLigneVideByColonne(col2);
-                        game.setCoup(ligne2, col2, ai2.getId());
-                        
-                        Coup coup2 = new Coup(0, ligne2, col2, ai2.getId());
-                        partieJeu.ajouterCoup(coup2);
-                        moveCount++;
-                        
-                        final int move = moveCount;
-                        javafx.application.Platform.runLater(() -> updateButtonColor(ligne2, col2));
-                        
-                        Thread.sleep(800);
-                        
-                        if (game.estGagnant(new Position(ligne2, col2), ai2.getId())) {
-                            javafx.application.Platform.runLater(this::handleGameWin);
-                            return;
-                        }
-                        
-                        if (game.estRemplie()) {
-                            javafx.application.Platform.runLater(this::handleGameTie);
-                            return;
-                        }
-                    } catch (CoupException e) {
-                        // AI 2 stuck
-                    }
-                }
-                
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                };
+                return task;
             }
-        }).start();
+        };
+
+        aiService.start();
     }
+    
     private void resetAndRestart() {
         this.partieJeu.initialiseGrille();
         gameControlleur();
@@ -413,7 +408,7 @@ public class Controlleur {
         xBox.showAndWait();
     }
 
-    // ============ Menus ============
+    // menu bar
     public MenuBar getMenu() {
         MenuBar mBar = new MenuBar();
 
@@ -435,13 +430,13 @@ public class Controlleur {
         mnuImportExport.getItems().addAll(mniImporter, mniExporter);
 
         mnuPartie.getItems().addAll(lancerPartie, mnuImportExport);
-        mnuPartie.getItems().add(new javafx.scene.control.SeparatorMenuItem());
+        mnuPartie.getItems().add(new SeparatorMenuItem());
         mnuPartie.getItems().addAll(mnisauvPartie, mniQuitter);
 
         mniLancerPartie.setOnAction(event -> lancerPartieJoueurVsJoueur());
         mniLancerPartieIA.setOnAction(event -> lancerPartieJoueurVsIA());
         mniSimulerAIvsAI.setOnAction(event -> lancerSimulationAIvsAI());
-        mniImporter.setOnAction(event -> new com.example.vue.VueImporterPartie().afficher());
+        mniImporter.setOnAction(event -> new VueImporterPartie().afficher());
         mniExporter.setOnAction(event -> new VueExporterPartie().afficher());
         mniQuitter.setOnAction(event -> Platform.exit());
 
@@ -482,5 +477,4 @@ public class Controlleur {
         return mBar;
     }
 
-    // ============ Utility Methods ============
 }

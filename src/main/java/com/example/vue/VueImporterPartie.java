@@ -1,7 +1,9 @@
 package com.example.vue;
 
 import java.io.File;
+import java.util.function.Consumer;
 
+import com.example.model.Coup;
 import com.example.model.Game;
 import com.example.model.GestionFichier;
 import com.example.model.Partie;
@@ -54,7 +56,7 @@ public class VueImporterPartie {
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Choisir un fichier de partie");
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Fichiers texte", "*.txt"));
-            File selectedFile = fileChooser.showOpenDialog(stage);
+            File selectedFile = fileChooser.showOpenDialog(stage); // open the window which contains files (dolphin)
             if (selectedFile != null) {
                 pathField.setText(selectedFile.getAbsolutePath());
             }
@@ -111,31 +113,19 @@ public class VueImporterPartie {
         
         stage.setTitle("Partie importée - " + partie.getJ1().getNom() + " vs " + partie.getJ2().getNom());
         
-        // Create the game interface
-        Game game = partie.getPuissance();
+        // Create a fresh game without moves
+        Game game = new Game(partie.getJ1().getId(), partie.getJ2().getId());
+        game.initialiseGrille();
+        
         InterfaceJeuPuissance interfaceJeu = new InterfaceJeuPuissance(game.getNbLigne(), game.getNbColonne());
         interfaceJeu.dessiner();
-        
-        // Update board colors based on game state
-        for (int i = 0; i < game.getNbLigne(); i++) {
-            for (int j = 0; j < game.getNbColonne(); j++) {
-                int valeur = game.getValeurPosition(i, j);
-                if (valeur == partie.getJ1().getId()) {
-                    interfaceJeu.setCouleurButton(game.getNbLigne() - i - 1, j, "#FF6B6B"); // Red for player 1
-                } else if (valeur == partie.getJ2().getId()) {
-                    interfaceJeu.setCouleurButton(game.getNbLigne() - i - 1, j, "#FFD93D"); // Yellow for player 2
-                } else {
-                    interfaceJeu.setCouleurButton(game.getNbLigne() - i - 1, j, "#aaaaaa"); // Gray for empty
-                }
-            }
-        }
         
         // Create info panel
         VBox infoPanel = new VBox(10);
         infoPanel.setPadding(new Insets(12));
         infoPanel.setStyle("-fx-border-color: #cccccc;");
         
-        Label title = new Label("Résumé de la partie");
+        Label title = new Label("Rejouer la partie");
         title.setStyle("-fx-font-size: 14; -fx-font-weight: bold;");
         
         Label j1Info = new Label("Joueur 1: " + partie.getJ1().getNom() + " (Score: " + partie.getScoreJ1() + ")");
@@ -151,18 +141,72 @@ public class VueImporterPartie {
         Label resultatInfo = new Label(gagnantText);
         resultatInfo.setStyle("-fx-font-weight: bold;");
         
-        // Create back button
+        // Replay display
+        Label progressLabel = new Label("En cours de lecture...");
+        progressLabel.setStyle("-fx-font-size: 12;");
+        
         Button btnBack = new Button("← Retour");
+        
+        // Function to update the board display
+        Consumer<Integer> updateBoard = moveIndex -> {
+            game.initialiseGrille();
+            for (int i = 0; i < moveIndex; i++) {
+                Coup coup = partie.getCoups().get(i);
+                game.setCoup(coup.getNumLigne(), coup.getNumCol(), coup.getIdJoueur());
+            }
+            
+            // Update colors
+            for (int i = 0; i < game.getNbLigne(); i++) {
+                for (int j = 0; j < game.getNbColonne(); j++) {
+                    int valeur = game.getValeurPosition(i, j);
+                    if (valeur == partie.getJ1().getId()) {
+                        interfaceJeu.setCouleurButton(game.getNbLigne() - i - 1, j, "#FF6B6B");
+                    } else if (valeur == partie.getJ2().getId()) {
+                        interfaceJeu.setCouleurButton(game.getNbLigne() - i - 1, j, "#FFD93D");
+                    } else {
+                        interfaceJeu.setCouleurButton(game.getNbLigne() - i - 1, j, "#aaaaaa");
+                    }
+                }
+            }
+            progressLabel.setText("Coup " + moveIndex + " / " + partie.getCoups().size());
+        };
+        
         btnBack.setOnAction(event -> {
             mainLayout.setCenter(createImportPanel());
             mainLayout.setRight(null);
             stage.setTitle("Importer une partie");
         });
         
-        infoPanel.getChildren().addAll(title, j1Info, j2Info, coupInfo, resultatInfo, new Label(""), btnBack);
+        infoPanel.getChildren().addAll(
+            title, j1Info, j2Info, coupInfo, resultatInfo, 
+            new Label(""),
+            progressLabel,
+            new Label(""),
+            btnBack
+        );
         
         // Set the game board and info in the main layout
         mainLayout.setCenter(interfaceJeu.getGrilleJeu());
         mainLayout.setRight(infoPanel);
+        
+        // Start automatic playback immediately
+        new Thread(() -> {
+            for (int i = 0; i <= partie.getCoups().size(); i++) {
+                try {
+                    final int moveIdx = i;
+                    javafx.application.Platform.runLater(() -> updateBoard.accept(moveIdx));
+                    Thread.sleep(800);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            // Final state
+            javafx.application.Platform.runLater(() -> 
+                progressLabel.setText("Partie terminée - Coup " + partie.getCoups().size() + " / " + partie.getCoups().size())
+            );
+        }).start();
     }
 }
+
+
+// TODO: Understand the code; check if everything works right

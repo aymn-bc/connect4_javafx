@@ -6,6 +6,7 @@ com/example/model/ConnexionDB.class
 com/example/model/Coup.class
 com/example/model/GestionFichier.class
 com/example/model/CoupException.class
+com/example/controller/Controlleur$2.class
 module-info.class
 com/example/vue/VueImporterPartie.class
 com/example/vue/VueAjouterJoueur.class
@@ -18,8 +19,10 @@ com/example/model/JoueurAI.class
 com/example/model/DAO.class
 com/example/vue/VueHistoriqueJoueur.class
 com/example/model/Position.class
+com/example/controller/Controlleur$1.class
 com/example/model/Joueur.class
 com/example/model/Game.class
 com/example/AppPuissance.class
+com/example/controller/Controlleur$2$1.class
 com/example/vue/VueExporterPartie.class
 com/example/model/DAOPartie.class
